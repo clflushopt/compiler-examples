@@ -36,7 +36,7 @@ class Instruction(ABC):
     def __init__(self, op):
         self.op = op
 
-    def terminator(self) -> bool:
+    def is_terminator(self) -> bool:
         if isinstance(self, Jmp) or isinstance(self, Br) or isinstance(self,Ret):
             return True
         return False
@@ -511,15 +511,15 @@ class Program:
 class BasicBlock:
     def __init__(self, label, instructions):
         self.label = label
-        self.instructions = instructions
-        self.successors = []
-        self.predecessors = []
+        self.instructions:List[Instruction] = instructions
+        self.successors:List[BasicBlock] = []
+        self.predecessors:List[BasicBlock] = []
 
 
 class ControlFlowGraph:
     def __init__(self, function):
-        self.function = function
-        self.basic_blocks = []
+        self.function: Function= function
+        self.basic_blocks:List[BasicBlock] = []
         self.build()
 
     def build(self):
@@ -527,7 +527,7 @@ class ControlFlowGraph:
         blocks = []
         current_block = []
         for instr in self.function.instructions:
-            if isinstance(instr, Jmp) or isinstance(instr, Br):
+            if instr.is_terminator():
                 if current_block:
                     blocks.append(current_block)
                     current_block = []
