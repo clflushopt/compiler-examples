@@ -16,10 +16,26 @@ data structures e.g control flow graphs, SSA representation, dominance graphs...
 
 I hope you enjoy hacking on it as much as I enjoyed writing.
 
-## Implementations
+## Usage
+
+The repository is designed to allow you to hack on things as much as possible.
+
+The core implementation revolves around [`bril.ir`](bril/core/ir.py) where most
+of the core intermediate language is implemented, the [tools](bril/tools/) directory
+contains small utilities that can be used to parse and manipulate Bril programs.
+
+For testing, a custom built tool inspired by `llvm-lit` called [`turnstile`](turnstile/turnstile.py)
+is provided. `turnstile` runs snapshot testing of input vs outputs, it's both a
+testing framework and a library that can be used to write `expect` style tests.
+
+`turnstile` is how we test all program transformations especially when it comes
+to optimization passes and so on.
+
+For more details about what's implemented and where see the list below :
 
 * Core IR implementation with support for basic blocks and control flow graphs see [ir.py](bril/core/ir.py).
 * Tools to parse Bril from both text and JSON formats see [bril2txt](bril/tools/bril2ir.py) and [bril2json](bril/tools/bril2json.py).
+* Snapshot testing of optimization passes in [tunrstile](turnstile/turnstile.py).
 * Implementation of various scalar optimizations such as [Dead Code Elimination](bril/core/dce.py), 
 [Local Value Numbering](bril/core/lvn.py) and [SCCP](bril/core/sccp.py).
 * Implementation of various loop optimizations such as [Loop Invariant Code Motion](bril/core/licm.py).
