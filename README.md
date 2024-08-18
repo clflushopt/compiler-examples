@@ -19,10 +19,10 @@ I hope you enjoy hacking on it as much as I enjoyed writing.
 ## Implementations
 
 * Core IR implementation with support for basic blocks and control flow graphs see [ir.py](bril/core/ir.py).
-* Tools to parse Bril from both text and JSON formats see [bril2txt](bril/tools/bril2ir.py) and [bril2json](bril/tools/bril2json.py) :white_check_mark:.
+* Tools to parse Bril from both text and JSON formats see [bril2txt](bril/tools/bril2ir.py) and [bril2json](bril/tools/bril2json.py).
 * Implementation of various scalar optimizations such as [Dead Code Elimination](bril/core/dce.py), 
 [Local Value Numbering](bril/core/lvn.py) and [SCCP](bril/core/sccp.py).
-* Implementation of various loop optimizations such as [Loop Invariant Code Motion](bril/core/licm.py) and 
+* Implementation of various loop optimizations such as [Loop Invariant Code Motion](bril/core/licm.py).
 * Implementation of phase ordering selection as a [profile guided optimization](bril/core/pgo.py)
 
 ## References

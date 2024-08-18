@@ -3,11 +3,11 @@ Bril IL as a three address code intermediate representation where instructions
 are written in the form `dst <- op args`.
 """
 
-from abc import abstractmethod, ABC
-from dataclasses import dataclass
-from typing import Any, Optional, List
-from enum import Enum
+from abc import ABC, abstractmethod
 from collections import OrderedDict
+from dataclasses import dataclass
+from enum import Enum
+from typing import List
 
 
 class OPCode(Enum):
@@ -625,7 +625,7 @@ class Function:
                     case "nop":
                         instruction = Nop()
                     case _:
-                        raise Exception("unimplemented instruction for {}".format(inst))
+                        raise NotImplemented("unimplemented instruction for {}".format(inst))
             # Append the instruction the actual code section.
             self.instructions.append(instruction)
 
@@ -637,7 +637,7 @@ class Function:
         )
         return (
             f"{self.name}: {self.return_type}{"" if len(param_str) == 0 else param_str} {{\n"
-            + "\n".join("   " + str(instr) for instr in self.instructions)
+            + "\n".join("   " + instr.__str__() for instr in self.instructions)
             + "\n"
             + "}"
         )
@@ -765,3 +765,13 @@ class ControlFlowGraph:
                 dot_str += f"  {block.label} -> {successor.label};\n"
         dot_str += "}"
         return dot_str
+
+    def reassemble(blocks: List[BasicBlock]) -> List[Instruction]:
+        """
+        Flatten basic blocks back to a list of instructions.
+        """
+        instructions = []
+        for block in blocks :
+            for instr in block.instructions:
+                instructions.append(instr)
+        return instructions

@@ -1,9 +1,13 @@
+"""
+Parse a Bril format from its textual representation to control flow graphs.
+"""
+
 import json
 import sys
 
 import bril
-import bril.core.parser
 import bril.core.ir
+import bril.core.parser
 
 if __name__ == "__main__":
     input = sys.stdin.read()

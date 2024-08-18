@@ -1,3 +1,8 @@
+"""
+Convert a Bril program from textual representation to the internal intermediate
+language.
+"""
+
 import json
 import sys
 
