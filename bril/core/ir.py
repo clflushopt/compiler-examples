@@ -35,7 +35,6 @@ class OPCode(Enum):
     RET = 18
     PRINT = 19
 
-
 class Instruction(ABC):
     """
     An instruction in Bril is composed of an OPCode and different arguments. 
@@ -406,10 +405,13 @@ class Call(ValueOperation):
         self.dest = dest
         self.type = type
         self.func = func
-        self.args = [arg for arg in args]
+        self.args = [arg for arg in args] if args else []
 
     def __str__(self) -> str:
-        return f"{self.dest}: {self.type} = call {self.func} {" ".join(self.args)}"
+        if self.dest is not None and self.type is not None:
+            return f"{self.dest}: {self.type} = call {self.func} {" ".join(self.args)}"
+        else :
+            return f"call {self.func} {" ".join(self.args)}"
 
 
 @dataclass
@@ -450,7 +452,7 @@ class Jmp(EffectOperation):
         super().__init__(OPCode.JMP, labels=[label])
         self.target = label
 
-    def target(self):
+    def target_label(self):
         """
         Return the target (label) of the jump.
         """
@@ -465,7 +467,7 @@ class Br(EffectOperation):
     `br` instruction represents conditional branches.
     """
     def __init__(self, cond, true_label, false_label):
-        super().__init__(OPCode.BR, args=[cond], labels=[true_label, false_label])
+        super().__init__(OPCode.BR, args=cond, labels=[true_label, false_label])
 
     def then_label(self):
         """
@@ -478,6 +480,9 @@ class Br(EffectOperation):
         Return the target label of the else case.
         """
         return self.labels[1]
+
+    def __str__(self) -> str:
+        return f"br {self.args[0]} .{self.labels[0]} .{self.labels[1]}"
 
 
 @dataclass
@@ -492,7 +497,10 @@ class Ret(EffectOperation):
         self.value = value
 
     def __str__(self) -> str:
-        return f"ret {self.value}"
+        if self.value:
+            return f"ret {self.value}"
+        else:
+            return f"ret"
 
 
 @dataclass
@@ -502,7 +510,7 @@ class Label(Instruction):
     and conditional jumps.
     """
     def __init__(self, name):
-        super().__init__(None, None)
+        super().__init__(Label)
         self.name = name
     
     def name(self) -> str:
@@ -512,7 +520,7 @@ class Label(Instruction):
         return self.name
 
     def __str__(self):
-        return f"label {self.name}"
+        return f".{self.name}:"
 
 
 @dataclass
@@ -604,7 +612,7 @@ class Function:
                         instruction = Jmp(inst["labels"][0])
                     case "call":
                         instruction = Call(
-                            inst["dest"], inst["type"], inst["funcs"][0], inst["args"]
+                            inst.get("dest"), inst.get("type"), inst["funcs"][0], inst.get("args")
                         )
                     case "br":
                         instruction = Br(
@@ -613,7 +621,9 @@ class Function:
                     case "print":
                         instruction = Print(inst["args"][0])
                     case "ret":
-                        instruction = Ret(inst["args"][0])
+                        instruction = Ret(None if inst.get("args") is None else inst["args"][0])
+                    case "nop":
+                        instruction = Nop()
                     case _:
                         raise Exception("unimplemented instruction for {}".format(inst))
             # Append the instruction the actual code section.
@@ -685,7 +695,7 @@ class ControlFlowGraph:
         # In the case of labels the `current_block` is considered complete and
         # is appended to `blocks` with the label as its name.
         for instr in self.function.instructions:
-            if instr is not isinstance(instr, Label):
+            if not isinstance(instr, Label):
                 # The current instruction is not label so it is appended to the
                 # current block.
                 current_block.append(instr)
@@ -695,7 +705,7 @@ class ControlFlowGraph:
                     blocks.append(current_block)
                     # Start a new block.
                     current_block = []
-            else:
+            if isinstance(instr, Label):
                 # The current instruction is a label, end the current block
                 # or start a new one with the label.
                 if current_block:
@@ -710,7 +720,7 @@ class ControlFlowGraph:
         for i, block in enumerate(blocks):
             # If the first instruction in the block is a label use it as
             # the default block name, otherwise assign a synthetic name.
-            label = block[0].name() if isinstance(block[0], Label) else f"block_{i}"
+            label = block[0].name if isinstance(block[0], Label) else f"block_{i}"
             basic_block = BasicBlock(label=label, instructions=block)
             self.block_map[label] = basic_block
             self.basic_blocks.append(basic_block)
@@ -721,7 +731,7 @@ class ControlFlowGraph:
             # branch or a fallthrough.
             for instr in block.instructions:
                 if isinstance(instr, Jmp):
-                    target_label = instr.target()
+                    target_label = instr.target_label()
                     target_block = self.block_map[target_label]
                     # Append the target block to the list of successors.
                     block.successors.append(target_block)
