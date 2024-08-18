@@ -1,14 +1,19 @@
 """
-Bril IL as a three address code intermediate representation.
+Bril IL as a three address code intermediate representation where instructions
+are written in the form `dst <- op args`.
 """
 
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from typing import Any, Optional, List
 from enum import Enum
+from collections import OrderedDict
 
 
-class Opcode(Enum):
+class OPCode(Enum):
+    """
+    Each instruction is represented semantically by an OPCode.
+    """
     NOP = 0
     ID = 1
     CONST = 2
@@ -32,25 +37,50 @@ class Opcode(Enum):
 
 
 class Instruction(ABC):
+    """
+    An instruction in Bril is composed of an OPCode and different arguments. 
+    """
     @abstractmethod
     def __init__(self, op):
         self.op = op
 
     def is_terminator(self) -> bool:
+        """
+        Return `True` if the instruction is a terminator i.e terminates
+        control flow for a basic block.
+
+        Bril has only three terminators `jmp`, `br` and `ret`.
+        """
         if isinstance(self, Jmp) or isinstance(self, Br) or isinstance(self,Ret):
             return True
         return False
 
+    def is_label(self) -> bool:
+        """
+        Return `True` if the instruction is a label.
+        """
+        if isinstance(self, Label):
+            return True
+        return False
+
 class ConstOperation(Instruction):
+    """
+    Instructions which are considered constant i.e the produce a constant value
+    without any side effects.
+    """
     def __init__(self, dest, type, value):
         super().__init__("const")
-        self.op = Opcode.CONST
+        self.op = OPCode.CONST
         self.dest = dest
         self.type = type
         self.value = value
 
 
 class ValueOperation(Instruction):
+    """
+    Instructions which produce values but no side effects such as arithmetic
+    or comparison instructions.
+    """
     def __init__(self, op, dest, type, args=None, funcs=None, labels=None):
         super().__init__(op)
         self.dest = dest
@@ -61,6 +91,10 @@ class ValueOperation(Instruction):
 
 
 class EffectOperation(Instruction):
+    """
+    Instructions which produce side effects i.e they change the program's
+    control flow such as function calls or conditional jumps.
+    """
     def __init__(self, op, args=None, funcs=None, labels=None):
         super().__init__(op)
         self.args = args if args else []
@@ -70,6 +104,10 @@ class EffectOperation(Instruction):
 
 @dataclass
 class Const(ConstOperation):
+    """
+    `const` instruction produces a constant value such as an integer, character
+    or memory address.
+    """
     def __init__(self, dest, type, value):
         super().__init__(dest, type, value)
 
@@ -79,12 +117,15 @@ class Const(ConstOperation):
 
 @dataclass
 class Id(ValueOperation):
+    """
+    `id` instruction produces the value it takes as input.
+    """
     dest: str
     type: str
     src: str
 
     def __init__(self, dest, type, src):
-        super().__init__(Opcode.ID, dest, type, [src])
+        super().__init__(OPCode.ID, dest, type, [src])
         self.dest = dest
         self.src = src
         self.type = type
@@ -95,13 +136,16 @@ class Id(ValueOperation):
 
 @dataclass
 class Add(ValueOperation):
+    """
+    `add` instruction produces the sum of two operands.
+    """
     dest: str
     type: str
     lhs: str
     rhs: str
 
     def __init__(self, dest, type, lhs, rhs):
-        super().__init__(Opcode.ADD, dest, type, [lhs, rhs])
+        super().__init__(OPCode.ADD, dest, type, [lhs, rhs])
         self.dest = dest
         self.type = type
         self.lhs = lhs
@@ -113,13 +157,16 @@ class Add(ValueOperation):
 
 @dataclass
 class Mul(ValueOperation):
+    """
+    `mul` instruction produces the product of two operands.
+    """
     dest: str
     type: str
     lhs: str
     rhs: str
 
     def __init__(self, dest, type, lhs, rhs):
-        super().__init__(Opcode.MUL, dest, type, [lhs, rhs])
+        super().__init__(OPCode.MUL, dest, type, [lhs, rhs])
         self.dest = dest
         self.type = type
         self.lhs = lhs
@@ -131,13 +178,16 @@ class Mul(ValueOperation):
 
 @dataclass
 class Sub(ValueOperation):
+    """
+    `sub` instruction produces the difference of two operands.
+    """
     dest: str
     type: str
     lhs: str
     rhs: str
 
     def __init__(self, dest, type, lhs, rhs):
-        super().__init__(Opcode.SUB, dest, type, [lhs, rhs])
+        super().__init__(OPCode.SUB, dest, type, [lhs, rhs])
         self.dest = dest
         self.type = type
         self.lhs = lhs
@@ -149,13 +199,16 @@ class Sub(ValueOperation):
 
 @dataclass
 class Div(ValueOperation):
+    """
+    `div` instruction produces the integer division of two operands.
+    """
     dest: str
     type: str
     lhs: str
     rhs: str
 
     def __init__(self, dest, type, lhs, rhs):
-        super().__init__(Opcode.DIV, dest, type, [lhs, rhs])
+        super().__init__(OPCode.DIV, dest, type, [lhs, rhs])
         self.dest = dest
         self.type = type
         self.lhs = lhs
@@ -167,13 +220,17 @@ class Div(ValueOperation):
 
 @dataclass
 class Eq(ValueOperation):
+    """
+    `eq` instruction implements the equality operator and produces a boolean
+    value showing whether two operands are equal.
+    """
     dest: str
     type: str
     lhs: str
     rhs: str
 
     def __init__(self, dest, type, lhs, rhs):
-        super().__init__(Opcode.EQ, dest, type, [lhs, rhs])
+        super().__init__(OPCode.EQ, dest, type, [lhs, rhs])
         self.dest = dest
         self.type = type
         self.lhs = lhs
@@ -185,13 +242,17 @@ class Eq(ValueOperation):
 
 @dataclass
 class Lt(ValueOperation):
+    """
+    `lt` instruction implements the lesser than operator and produces a boolean
+    value showing whether the first operand is lesser than the second operand.
+    """
     dest: str
     type: str
     lhs: str
     rhs: str
 
     def __init__(self, dest, type, lhs, rhs):
-        super().__init__(Opcode.LT, dest, type, [lhs, rhs])
+        super().__init__(OPCode.LT, dest, type, [lhs, rhs])
         self.dest = dest
         self.type = type
         self.lhs = lhs
@@ -203,13 +264,17 @@ class Lt(ValueOperation):
 
 @dataclass
 class Gt(ValueOperation):
+    """
+    `lt` instruction implements the greater than operator and produces a boolean
+    value showing whether the first operand is greater than the second operand.
+    """
     dest: str
     type: str
     lhs: str
     rhs: str
 
     def __init__(self, dest, type, lhs, rhs):
-        super().__init__(Opcode.GT, dest, type, [lhs, rhs])
+        super().__init__(OPCode.GT, dest, type, [lhs, rhs])
         self.dest = dest
         self.type = type
         self.lhs = lhs
@@ -221,13 +286,18 @@ class Gt(ValueOperation):
 
 @dataclass
 class Lte(ValueOperation):
+    """
+    `lte` instruction implements the lesser than or equal comparison operator
+    and produces a boolean value showing whether the first operand is lesser
+    than or equal the second operand.
+    """
     dest: str
     type: str
     lhs: str
     rhs: str
 
     def __init__(self, dest, type, lhs, rhs):
-        super().__init__(Opcode.LTE, dest, type, [lhs, rhs])
+        super().__init__(OPCode.LTE, dest, type, [lhs, rhs])
         self.dest = dest
         self.type = type
         self.lhs = lhs
@@ -239,13 +309,18 @@ class Lte(ValueOperation):
 
 @dataclass
 class Gte(ValueOperation):
+    """
+    `gte` instruction implements the greater than or equal comparison operator
+    and produces a boolean value showing whether the first operand is greater 
+    than or equal the second operand.
+    """
     dest: str
     type: str
     lhs: str
     rhs: str
 
     def __init__(self, dest, type, lhs, rhs):
-        super().__init__(Opcode.GTE, dest, type, [lhs, rhs])
+        super().__init__(OPCode.GTE, dest, type, [lhs, rhs])
         self.dest = dest
         self.type = type
         self.lhs = lhs
@@ -257,12 +332,15 @@ class Gte(ValueOperation):
 
 @dataclass
 class Lnot(ValueOperation):
+    """
+    `lnot` instruction implements the logical not operator (negation).   
+    """
     dest: str
     type: str
     arg: str
 
     def __init__(self, dest, arg):
-        super().__init__(Opcode.LNOT, dest, type, [arg])
+        super().__init__(OPCode.LNOT, dest, type, [arg])
         self.dest = dest
         self.type = type
         self.arg = arg
@@ -273,13 +351,16 @@ class Lnot(ValueOperation):
 
 @dataclass
 class Land(ValueOperation):
+    """
+    `land` implements logical and operator.
+    """
     dest: str
     type: str
     lhs: str
     rhs: str
 
     def __init__(self, dest, type, lhs, rhs):
-        super().__init__(Opcode.LAND, dest, type, [lhs, rhs])
+        super().__init__(OPCode.LAND, dest, type, [lhs, rhs])
         self.dest = dest
         self.type = type
         self.lhs = lhs
@@ -291,13 +372,16 @@ class Land(ValueOperation):
 
 @dataclass
 class Lor(ValueOperation):
+    """
+    `lor` implements logical or operator.
+    """
     dest: str
     type: str
     lhs: str
     rhs: str
 
     def __init__(self, dest, type, lhs, rhs):
-        super().__init__(Opcode.LOR, dest, type, [lhs, rhs])
+        super().__init__(OPCode.LOR, dest, type, [lhs, rhs])
         self.dest = dest
         self.type = type
         self.lhs = lhs
@@ -309,13 +393,16 @@ class Lor(ValueOperation):
 
 @dataclass
 class Call(ValueOperation):
+    """
+    `call` instruction encodes function calls.
+    """
     dest: str
     type: str
     func: str
     args: List[str]
 
     def __init__(self, dest, type, func, args):
-        super().__init__(Opcode.CALL, dest, type, args, funcs=[func])
+        super().__init__(OPCode.CALL, dest, type, args, funcs=[func])
         self.dest = dest
         self.type = type
         self.func = func
@@ -327,8 +414,11 @@ class Call(ValueOperation):
 
 @dataclass
 class Nop(EffectOperation):
+    """
+    `nop` instruction for no-operation.
+    """
     def __init__(self):
-        super().__init__(Opcode.NOP)
+        super().__init__(OPCode.NOP)
 
     def __str__(self) -> str:
         return f"nop"
@@ -336,10 +426,13 @@ class Nop(EffectOperation):
 
 @dataclass
 class Print(EffectOperation):
+    """
+    `print` instruction used mainly for tracing or interpretation.
+    """
     arg: str
 
     def __init__(self, arg):
-        super().__init__(Opcode.PRINT, args=[arg])
+        super().__init__(OPCode.PRINT, args=[arg])
         self.arg = arg
 
     def __str__(self) -> str:
@@ -348,29 +441,54 @@ class Print(EffectOperation):
 
 @dataclass
 class Jmp(EffectOperation):
+    """
+    `jmp` instruction represents direct jumps.
+    """
     target: str
 
     def __init__(self, label):
-        super().__init__(Opcode.JMP, labels=[label])
+        super().__init__(OPCode.JMP, labels=[label])
         self.target = label
 
+    def target(self):
+        """
+        Return the target (label) of the jump.
+        """
+        return self.target
     def __str__(self) -> str:
         return f"jmp .{self.target}"
 
 
 @dataclass
 class Br(EffectOperation):
-
+    """
+    `br` instruction represents conditional branches.
+    """
     def __init__(self, cond, true_label, false_label):
-        super().__init__(Opcode.BR, args=[cond], labels=[true_label, false_label])
+        super().__init__(OPCode.BR, args=[cond], labels=[true_label, false_label])
+
+    def then_label(self):
+        """
+        Return the target label of the then case.
+        """
+        return self.labels[0]
+
+    def else_label(self):
+        """
+        Return the target label of the else case.
+        """
+        return self.labels[1]
 
 
 @dataclass
 class Ret(EffectOperation):
+    """
+    `ret` instruction for returning from a call site.
+    """
     value: str
 
     def __init__(self, value=None):
-        super().__init__(Opcode.RET, args=[value] if value else [])
+        super().__init__(OPCode.RET, args=[value] if value else [])
         self.value = value
 
     def __str__(self) -> str:
@@ -379,10 +497,19 @@ class Ret(EffectOperation):
 
 @dataclass
 class Label(Instruction):
-
+    """
+    `label` is a pseudo-instruction and is used to mark the target of direct
+    and conditional jumps.
+    """
     def __init__(self, name):
         super().__init__(None, None)
         self.name = name
+    
+    def name(self) -> str:
+        """
+        Return the label name.
+        """
+        return self.name
 
     def __str__(self):
         return f"label {self.name}"
@@ -390,18 +517,28 @@ class Label(Instruction):
 
 @dataclass
 class Function:
+    """
+    Functions in the Bril intermediate language encode the function name and
+    signature and the list of instructions representing the function.
+    """
     name: str
     return_type: str
     params: List[str]
     instructions: List[Instruction]
 
     def __init__(self, name, return_type, params, instructions):
+        """
+        Form a function from a list of instructions.
+        """
         self.name = name
         self.return_type = return_type
         self.params = params
         self.instructions = instructions
 
-    def __init__(self, ast):
+    def __init__(self, ast:dict):
+        """
+        Form a function from a JSON encoded AST.
+        """
         self.instructions = []
         self.return_type = ast.get("type", "void")
         self.params = ast.get("args", [])
@@ -497,9 +634,13 @@ class Function:
 
 
 class Program:
+    """
+    Programs in the Bril intermediate language are just sequence of functions
+    without any top level declarations.
+    """
     functions: List[Function] = []
 
-    def __init__(self, ast) -> None:
+    def __init__(self, ast):
         """
         Parse an AST from JSON format to a list of instructions.
         """
@@ -509,6 +650,10 @@ class Program:
 
 
 class BasicBlock:
+    """
+    Basic block is a straight-line sequence of Bril instructions without
+    branches except to the entry and at the exit.
+    """
     def __init__(self, label, instructions):
         self.label = label
         self.instructions:List[Instruction] = instructions
@@ -517,57 +662,92 @@ class BasicBlock:
 
 
 class ControlFlowGraph:
+    """
+    Control flow graph for a function is a graph where nodes are basic blocks
+    and edges are control flow instructions.
+    """
     def __init__(self, function):
-        self.function: Function= function
+        self.function: Function = function
         self.basic_blocks:List[BasicBlock] = []
-        self.build()
-
-    def build(self):
-        # Split instructions into basic blocks
-        blocks = []
+        self.block_map: OrderedDict[str, BasicBlock] = OrderedDict()
+        # List of blocks we are going to build.
+        blocks = [] 
+        # Current block being processed.
         current_block = []
+
+        # The algorithm for forming basic blocks iterates over the function's
+        # instruction and for each instruction, if it's not a terminator or a
+        # label it gets appended to `current_block`.
+        # 
+        # If the instruction is a terminator it gets appended to `current_block`
+        # and the `current_block` is appended to `blocks`.
+        # 
+        # In the case of labels the `current_block` is considered complete and
+        # is appended to `blocks` with the label as its name.
         for instr in self.function.instructions:
-            if instr.is_terminator():
+            if instr is not isinstance(instr, Label):
+                # The current instruction is not label so it is appended to the
+                # current block.
+                current_block.append(instr)
+                # If the current instruction is a terminator then the current
+                # block is considered complete.
+                if instr.is_terminator():
+                    blocks.append(current_block)
+                    # Start a new block.
+                    current_block = []
+            else:
+                # The current instruction is a label, end the current block
+                # or start a new one with the label.
                 if current_block:
                     blocks.append(current_block)
-                    current_block = []
-            current_block.append(instr)
+                # Preserve the label as a start for the new block.
+                current_block = [instr]
         if current_block:
             blocks.append(current_block)
-
-        # Create BasicBlock objects
+        # We now have a list of basic blocks processed from the function's
+        # instruction, the next step is to associate a label (name) to them
+        # then compute their predecessors and successors.
         for i, block in enumerate(blocks):
-            label = f"block_{i}"
-            self.basic_blocks.append(BasicBlock(label, block))
+            # If the first instruction in the block is a label use it as
+            # the default block name, otherwise assign a synthetic name.
+            label = block[0].name() if isinstance(block[0], Label) else f"block_{i}"
+            basic_block = BasicBlock(label=label, instructions=block)
+            self.block_map[label] = basic_block
+            self.basic_blocks.append(basic_block)
 
-        # Find successors and predecessors
+        # Computing successors and predecssors.
         for i, block in enumerate(self.basic_blocks):
-            if i < len(self.basic_blocks) - 1:
-                block.successors.append(self.basic_blocks[i + 1])
-                self.basic_blocks[i + 1].predecessors.append(block)
+            # The successor of the current block is either the target of a
+            # branch or a fallthrough.
             for instr in block.instructions:
                 if isinstance(instr, Jmp):
-                    target_label = instr.args[0]
-                    for target_block in self.basic_blocks:
-                        if target_block.label == target_label:
-                            block.successors.append(target_block)
-                            target_block.predecessors.append(block)
-                            break
-                elif isinstance(instr, Br):
-                    true_label = instr.args[1]
-                    false_label = instr.args[2]
-                    for target_block in self.basic_blocks:
-                        if target_block.label == true_label:
-                            block.successors.append(target_block)
-                            target_block.predecessors.append(block)
-                        elif target_block.label == false_label:
-                            block.successors.append(target_block)
-                            target_block.predecessors.append(block)
+                    target_label = instr.target()
+                    target_block = self.block_map[target_label]
+                    # Append the target block to the list of successors.
+                    block.successors.append(target_block)
+                    # Append the current block to the list of predecessors.
+                    target_block.predecessors.append(block)
+                if isinstance(instr, Br):
+                    # Label and basic block for the then branch.
+                    then_label = instr.then_label()
+                    then_block = self.block_map[then_label]
+                    # Label and basic block for the else branch.
+                    else_label = instr.else_label()
+                    else_block = self.block_map[else_label]
+                    # The current block has two successors then and else
+                    # branches.
+                    block.successors.append(then_block)
+                    block.successors.append(else_block)
+                    # They each have the current block as a predecessors.
+                    then_block.predecessors.append(block)
+                    else_block.predecessors.append(block)
+                    # Return is a fall through instruction i.e does not name
+                    # a target label, instead it returns back to the call site.
 
     def __str__(self):
-        dot_str = "digraph cfg {\n"
+        dot_str = "digraph {} {{\n".format(self.function.name)
         for block in self.basic_blocks:
-            dot_str += f'  {block.label} [label="'
+            dot_str += f'  {block.label} [shape=box, label="'
             for instr in block.instructions:
                 dot_str += str(instr) + "\\n"
             dot_str += '"];\n'

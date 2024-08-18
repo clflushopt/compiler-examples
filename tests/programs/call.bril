@@ -3,6 +3,7 @@
   sum: int = add n five;
   ret sum;
 }
+
 @main {
   a: int = const 9;
   b: int = call @add5 a;
