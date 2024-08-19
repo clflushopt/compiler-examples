@@ -23,12 +23,12 @@ class DeadCodeElimination(Transform):
     """
 
     def __init__(self):
-        super().__init__("trivial-dce")
+        super().__init__("dce")
 
-    def run(self, function: Function) -> bool:
-        while TrivialDeadCodeElimination().run(
+    def run(self, function: Function):
+        while TrivialDeadCodeElimination()._run(
             function
-        ) or RedundantStoreElimination().run(function):
+        ) or RedundantStoreElimination()._run(function):
             pass
 
 
@@ -49,7 +49,11 @@ class TrivialDeadCodeElimination(Transform):
     def __init__(self):
         super().__init__("trivial-dce")
 
-    def run(self, function: Function) -> bool:
+    def run(self, function: Function):
+        while self._run(function):
+            pass
+
+    def _run(self, function: Function) -> bool:
         super().run(function)
         # Worklist is the list of basic blocks we will work on.
         worklist: List[BasicBlock] = ControlFlowGraph(function).basic_blocks
@@ -113,9 +117,13 @@ class RedundantStoreElimination(Transform):
     """
 
     def __init__(self):
-        super().__init__("trivial-dce")
+        super().__init__("redundant-store-elimination")
 
     def run(self, function: Function):
+        while self._run(function):
+            pass
+
+    def _run(self, function: Function) -> bool:
         super().run(function)
         # Worklist is the list of basic blocks we will work on.
         worklist: List[BasicBlock] = ControlFlowGraph(function).basic_blocks
@@ -125,7 +133,7 @@ class RedundantStoreElimination(Transform):
         # Iterate over the blocks in the worklist.
         for block in worklist:
             eliminated |= self.eliminate_dead_stores(block)
-        function.instructions = ControlFlowGraph.reassemble(worklist)
+        function.instructions[:] = ControlFlowGraph.reassemble(worklist)
         return eliminated
 
     def eliminate_dead_stores(self, block: BasicBlock) -> bool:

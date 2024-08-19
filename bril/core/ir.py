@@ -505,6 +505,8 @@ class Ret(EffectOperation):
 
 @dataclass
 class Label(Instruction):
+    name: str
+
     """
     `label` is a pseudo-instruction and is used to mark the target of direct
     and conditional jumps.
@@ -529,19 +531,14 @@ class Function:
     Functions in the Bril intermediate language encode the function name and
     signature and the list of instructions representing the function.
     """
-    name: str
-    return_type: str
-    params: List[str]
-    instructions: List[Instruction]
-
     def __init__(self, name, return_type, params, instructions):
         """
         Form a function from a list of instructions.
         """
-        self.name = name
-        self.return_type = return_type
-        self.params = params
-        self.instructions = instructions
+        self.name:str = name
+        self.return_type:str = return_type
+        self.params:List[str] = params
+        self.instructions:List[Instruction] = instructions
 
     def __init__(self, ast:dict):
         """
@@ -648,16 +645,22 @@ class Program:
     Programs in the Bril intermediate language are just sequence of functions
     without any top level declarations.
     """
-    functions: List[Function] = []
-
     def __init__(self, ast):
         """
         Parse an AST from JSON format to a list of instructions.
         """
+        self.functions: List[Function] = []
         for function in ast["functions"]:
             func = Function(function)
             self.functions.append(func)
 
+    def __str__(self) -> str:
+        functions_str = '\n'
+        for function in self.functions:
+            functions_str += f"{function}\n"
+        return functions_str
+
+            
 
 class BasicBlock:
     """
@@ -665,7 +668,7 @@ class BasicBlock:
     branches except to the entry and at the exit.
     """
     def __init__(self, label, instructions):
-        self.label = label
+        self.label:str = label
         self.instructions:List[Instruction] = instructions
         self.successors:List[BasicBlock] = []
         self.predecessors:List[BasicBlock] = []

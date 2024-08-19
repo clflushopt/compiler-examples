@@ -3,7 +3,8 @@ Definition of a code transformation that can be applied to functions
 for intra-procedural optimizations.
 """
 
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
+
 from bril.core.ir import Function
 
 
@@ -19,4 +20,16 @@ class Transform(ABC):
 
     @abstractmethod
     def run(self, function: Function):
+        pass
+
+
+class Identity(Transform):
+    """
+    Identity transformation is a no op pass.
+    """
+
+    def __init__(self):
+        super().__init__("identity")
+
+    def run(self, _: Function):
         pass
