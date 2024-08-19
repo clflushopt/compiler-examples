@@ -14,7 +14,7 @@ import bril.core.parser
 from bril.core.transform import Transform
 
 OPTIMIZATIONS: List[Transform] = [
-    bril.core.dce.TrivialDeadCodeElimination(),
+    bril.core.dce.GlobalDeadCodeElimination(),
     bril.core.dce.RedundantStoreElimination(),
 ]
 

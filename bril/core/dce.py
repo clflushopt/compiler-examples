@@ -11,9 +11,10 @@ from bril.core.ir import (
     EffectOperation,
     Function,
     Instruction,
+    Label,
     ValueOperation,
 )
-from bril.core.transform import Transform
+from bril.core.transform import ENABLE_OPTIMIZATION_DEBUG_MODE, Transform
 
 
 class DeadCodeElimination(Transform):
@@ -26,16 +27,15 @@ class DeadCodeElimination(Transform):
         super().__init__("dce")
 
     def run(self, function: Function):
-        while TrivialDeadCodeElimination()._run(
+        while GlobalDeadCodeElimination()._run(
             function
         ) or RedundantStoreElimination()._run(function):
             pass
 
 
-class TrivialDeadCodeElimination(Transform):
+class GlobalDeadCodeElimination(Transform):
     """
-    Implementation of trivial dead code elimination of instructions per basic
-    block.
+    Implementation of global dead code elimination.
 
     The algorithm for dead code elimination proceeds by forming def-use sets
     where def-set is the set of all variables defined in the basic block and
@@ -47,7 +47,7 @@ class TrivialDeadCodeElimination(Transform):
     """
 
     def __init__(self):
-        super().__init__("trivial-dce")
+        super().__init__("global-dce")
 
     def run(self, function: Function):
         while self._run(function):
@@ -82,27 +82,23 @@ class TrivialDeadCodeElimination(Transform):
 
         # Intersect both sets, eliminating all defs that have been used.
         candidates = defs.difference(uses)
-        print(
-            f"Found {len(candidates)} candidates for deletion : {[name for name in candidates]}"
-        )
+
+        if ENABLE_OPTIMIZATION_DEBUG_MODE:
+            print(
+                f"Found {len(candidates)} candidates for deletion : {[name for name in candidates]}"
+            )
 
         # Iterate over the basic blocks, marking all instructions that are
         # candidates for deletion.
         for block in worklist:
             new_block = []
             for inst in block.instructions:
-                assert (
-                    isinstance(inst, ConstOperation)
-                    or isinstance(inst, ValueOperation)
-                    or isinstance(inst, EffectOperation)
-                )
                 if isinstance(inst, ConstOperation) and inst.dest not in candidates:
                     new_block.append(inst)
                 if isinstance(inst, ValueOperation) and inst.dest not in candidates:
                     new_block.append(inst)
-                if isinstance(inst, EffectOperation):
+                if isinstance(inst, EffectOperation) or isinstance(inst, Label):
                     new_block.append(inst)
-
             eliminated |= len(new_block) != len(block.instructions)
             block.instructions[:] = new_block
         function.instructions[:] = ControlFlowGraph.reassemble(worklist)
@@ -171,7 +167,10 @@ class RedundantStoreElimination(Transform):
                     # the last definition is then a candidate for deletion.
                     candidates.add(dest)
                 defs.add(instr.dest)
-        print(f"Found {len(candidates)} redundant stores ", candidates)
+
+        if ENABLE_OPTIMIZATION_DEBUG_MODE:
+            print(f"Found {len(candidates)} redundant stores ", candidates)
+
         # Iterate over the instructions dropping the first assignment that
         # is considered redundant.
         instructions: List[Instruction] = []

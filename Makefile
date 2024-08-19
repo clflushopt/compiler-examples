@@ -30,5 +30,15 @@ parser-check:
 	@echo "Running parser tests..."
 	@for file in tests/programs/*.bril; do \
 		filename=`basename "$$file" .bril`; \
-		cat "$$file" | $(PYTHON) -m bril.bin.bril2json; \
+		cat "$$file" | $(PYTHON) -m bril.tools.bril2json; \
+	done
+
+# Run optimizations sanity check.
+optimizations-check:
+	@echo "Running optimizations tests..."
+	@for file in tests/transforms/dce/*.bril; do \
+		input_file=$$file; \
+		expected_file=$${file%.bril}.out; \
+		echo "Testing for input $$input_file against $$expected_file"; \
+		$(PYTHON) -m turnstile.turnstile --input $$input_file --expected $$expected_file --optimizations 'dce, lvn'; \
 	done

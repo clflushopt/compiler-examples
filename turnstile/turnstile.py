@@ -17,6 +17,7 @@ import bril.core.dce
 import bril.core.ir
 import bril.core.parser
 import bril.core.transform
+from bril.core.transform import DEAD_CODE_ELIMINATION
 
 
 def parse(input: str) -> bril.core.ir.Program:
@@ -40,9 +41,25 @@ if __name__ == "__main__":
         epilog="Happy Hacking !",
     )
 
-    parser.add_argument("-i", "--input")
-    parser.add_argument("-e", "--expected")
-    parser.add_argument("-o", "--optimizations")
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Whether to dump the program to text format.",
+    )
+    parser.add_argument(
+        "-i", "--input", help="Path to an input file in the current directory."
+    )
+    parser.add_argument(
+        "-e",
+        "--expected",
+        help="Path to the expected output file in the current directory.",
+    )
+    parser.add_argument(
+        "-o",
+        "--optimizations",
+        help="Comma separated list of optimizations to run (see transform.py).",
+    )
 
     # Parse command line arguments and ensure some are available.
     args = parser.parse_args()
@@ -68,11 +85,13 @@ if __name__ == "__main__":
     input_program = parse(input)
     expected_program = parse(expected)
 
-    print(optimizations)
+    if args.verbose:
+        print(f"Optimizations to run: {optimizations}")
+
     transforms = [
         (
             bril.core.dce.DeadCodeElimination()
-            if "dce" in optimizations
+            if DEAD_CODE_ELIMINATION in optimizations
             else bril.core.transform.Identity()
         )
     ]
@@ -81,7 +100,8 @@ if __name__ == "__main__":
         for function in input_program.functions:
             transform.run(function)
 
-    assert input_program.functions == expected_program.functions
+    if args.verbose:
+        print(f"actual: {input_program}")
+        print(f"expected: {expected_program}")
 
-    print(f"actual: {input_program}")
-    print(f"expected: {expected_program}")
+    assert input_program.functions == expected_program.functions

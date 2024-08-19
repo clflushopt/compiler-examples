@@ -7,6 +7,17 @@ from abc import ABC, abstractmethod
 
 from bril.core.ir import Function
 
+# Name assigned to the dead code elimination transform.
+DEAD_CODE_ELIMINATION: str = "dce"
+# Name assigned to the global dead code elimination transform.
+GLOBAL_DEAD_CODE_ELIMINATION: str = "global-dce"
+# Name assigned to the redundant store elimination transform.
+REDUNDANT_STORE_ELIMINATION: str = "rse"
+
+# Whether or not to enable debug mode when running optimizations to display
+# verbose information.
+ENABLE_OPTIMIZATION_DEBUG_MODE: bool = False
+
 
 class Transform(ABC):
     """
