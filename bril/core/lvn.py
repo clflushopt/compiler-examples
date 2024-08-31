@@ -2,23 +2,11 @@
 Implementation of local value numbering.
 """
 
-from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple, Union
 
-from bril.core.ir import BasicBlock, ControlFlowGraph, Function, Instruction, OPCode
+import bril.core.ir as ir
+from bril.core.ir import BasicBlock, ControlFlowGraph, Function, Instruction
 from bril.core.transform import Transform
-
-
-@dataclass
-class ValueNumber:
-    # Assigned during construction.
-    index: int
-    # Values are represented by encoded instructions.
-    value: Tuple[Instruction, (OPCode, int, int)]
-    # The variable name associated with this value number, this is the destination
-    # of the value or constant operation. Since effect operations will not be
-    # processed in this table.
-    variable: str
 
 
 class LocalValueNumbering(Transform):
@@ -143,12 +131,120 @@ class LocalValueNumbering(Transform):
     def __init__(self):
         super().__init__("lvn")
         # Mapping of variables to rows in the value table.
-        self.environment: Dict[str, ValueNumber] = {}
+        self.environment: Dict[Tuple, int] = {}
+        # Mapping of variable names to their constant values.
+        self.constants: Dict[str, Union[int, bool]] = {}
+        # Mapping of value numbers to values.
+        self.values: Dict[int, str] = {}
+        self.next_value_number: int = 1
+        self.FOLDABLE: List[Instruction] = [
+            ir.Add,
+            ir.Sub,
+            ir.Mul,
+            ir.Div,
+            ir.Eq,
+            ir.Neq,
+            ir.Gt,
+            ir.Gte,
+            ir.Lt,
+            ir.Lte,
+            ir.Lnot,
+            ir.Lor,
+            ir.Land,
+        ]
+
+    def reset(self):
+        """
+        Reset the internal state.
+        """
+        self.environment: Dict[Tuple, int] = {}
+        self.constants: Dict[str, Union[int, bool]] = {}
+        self.values: Dict[int, str] = {}
+        self.next_value_number: int = 1
+
+    def vn(self, op, args):
+        """
+        Compute the value numbering of an expression.
+        """
+        if op is ir.OPCode.CONST:
+            key = (op, tuple(args))
+            folded = args[0]
+        else:
+            args = self._canonicalize(op, args)
+            resolved = tuple(self.constants.get(arg, arg) for arg in args)
+            key = (op, resolved)
+            folded = self._fold(op, resolved)
+        if key not in self.environment:
+            self.environment[key] = self.next_value_number
+            self.next_value_number += 1
+        return self.environment[key], folded
+
+    def _fold(self, op: ir.OPCode, args: Tuple[Union[int, bool]]):
+        FOLDABLE: Dict[ir.OPCode, Callable] = {
+            ir.OPCode.ADD: lambda x, y: int(x) + int(y),
+            ir.OPCode.SUB: lambda x, y: int(x) - int(y),
+            ir.OPCode.MUL: lambda x, y: int(x) * int(y),
+            ir.OPCode.DIV: lambda x, y: int(x) // int(y),
+            ir.OPCode.EQ: lambda x, y: bool(x) == bool(y),
+            ir.OPCode.GT: lambda x, y: bool(x) > bool(y),
+            ir.OPCode.GTE: lambda x, y: bool(x) >= bool(y),
+            ir.OPCode.LT: lambda x, y: bool(x) < bool(y),
+            ir.OPCode.LTE: lambda x, y: bool(x) <= bool(y),
+            ir.OPCode.LOR: lambda x, y: bool(x) or bool(y),
+            ir.OPCode.LAND: lambda x, y: bool(x) and bool(y),
+            ir.OPCode.LNOT: lambda x: not bool(x),
+        }
+        if op in FOLDABLE:
+            if op is ir.OPCode.LNOT:
+                return FOLDABLE[op](args[0])
+            else:
+                return FOLDABLE[op](args[0], args[1])
+        return None
+
+    def _canonicalize(self, op, args):
+        """
+        Canonicalize arguments when encoding them, this is how we handle
+        commutative operations.
+        """
+        if op is ir.OPCode.ADD or op is ir.OPCode.MUL:
+            return sorted(args)
+        return args
 
     def run(self, function):
         self._run(function=function)
 
     def _run(self, function: Function):
         worklist: List[BasicBlock] = ControlFlowGraph(function).basic_blocks
+        reassembled: List[BasicBlock] = []
         for block in worklist:
-            pass
+            optimized: List[Instruction] = []
+            for instr in block.instructions:
+                if isinstance(instr, ir.Const):
+                    args = instr.get_args()
+                    vn = self.vn(ir.Const, args)
+                    self.constants[instr.get_dest()] = instr.value
+                    self.values[vn] = instr.get_dest()
+                    optimized.append(instr)
+                elif isinstance(instr, tuple(self.FOLDABLE)):
+                    vn, folded = self.vn(instr.op, instr.get_args())
+                    if folded is not None:
+                        # We successfully folded this instruction so we replace
+                        # with `const`.
+                        optimized.append(ir.Const(instr.get_dest(), instr.type, folded))
+                        self.constants[instr.get_dest()] = folded
+                        self.values[vn] = instr.get_dest()
+                    if vn in self.values:
+                        optimized.append(
+                            ir.Id(instr.get_dest(), instr.type, self.values[vn])
+                        )
+                    else:
+                        optimized.append(instr)
+
+                    self.values[vn] = instr.get_dest()
+                else:
+                    optimized.append(instr)
+            reassembled.append(BasicBlock(block.label, optimized))
+            # print(f"Pre-pass: {block}")
+            # print(f"Post-pass: {BasicBlock("", optimized)}")
+            self.reset()
+        function.instructions = ControlFlowGraph.reassemble(reassembled)

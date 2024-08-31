@@ -89,25 +89,25 @@ if __name__ == "__main__":
     if args.verbose:
         print(f"Optimizations to run: {optimizations}")
 
-    transforms = [
-        (
-            bril.core.dce.DeadCodeElimination()
-            if DEAD_CODE_ELIMINATION in optimizations
-            else bril.core.transform.Identity()
-        ),
-        (
-            bril.core.lvn.LocalValueNumbering()
-            if LOCAL_VALUE_NUMBERING in optimizations
-            else bril.core.transform.Identity()
-        ),
-    ]
+    transforms = []
+
+    for optim in optimizations:
+        print(f"Optimization: {optim}")
+        if optim == DEAD_CODE_ELIMINATION:
+            transforms.append(bril.core.dce.DeadCodeElimination())
+        elif optim == LOCAL_VALUE_NUMBERING:
+            transforms.append(bril.core.lvn.LocalValueNumbering())
+        else:
+            transforms.append(bril.core.transform.Identity())
 
     for transform in transforms:
         for function in input_program.functions:
             transform.run(function)
+            print(f"Post transform function {function}")
 
     if args.verbose:
         print(f"actual: {input_program}")
         print(f"expected: {expected_program}")
+        pass
 
     assert input_program.functions == expected_program.functions

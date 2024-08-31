@@ -1,0 +1,7 @@
+@main {
+  a: bool = const true;
+  b: bool = const true;
+  c: bool = eq a b;
+  d: bool = not c;
+  print d;
+}

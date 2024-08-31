@@ -18,7 +18,7 @@ LOCAL_VALUE_NUMBERING: str = "lvn"
 
 # Whether or not to enable debug mode when running optimizations to display
 # verbose information.
-ENABLE_OPTIMIZATION_DEBUG_MODE: bool = False
+ENABLE_OPTIMIZATION_DEBUG_MODE: bool = True
 
 
 class Transform(ABC):

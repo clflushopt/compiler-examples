@@ -22,6 +22,7 @@ class OPCode(Enum):
     SUB = 5
     DIV = 6
     EQ = 7
+    NEQ = 20
     LT = 8
     GT = 9
     LTE = 10
@@ -261,6 +262,27 @@ class Eq(ValueOperation):
 
 
 @dataclass
+class Neq(ValueOperation):
+    """
+    `neq` instruction implements the equality operator and produces a boolean
+    value showing whether two operands are equal.
+    """
+    dest: str
+    type: str
+    lhs: str
+    rhs: str
+
+    def __init__(self, dest, type, lhs, rhs):
+        super().__init__(OPCode.NEQ, dest, type, [lhs, rhs])
+        self.dest = dest
+        self.type = type
+        self.lhs = lhs
+        self.rhs = rhs
+
+    def __str__(self) -> str:
+        return f"{self.dest}: {self.type} = neq {self.lhs} {self.rhs}"
+
+@dataclass
 class Lt(ValueOperation):
     """
     `lt` instruction implements the lesser than operator and produces a boolean
@@ -359,7 +381,7 @@ class Lnot(ValueOperation):
     type: str
     arg: str
 
-    def __init__(self, dest, arg):
+    def __init__(self, dest,type, arg):
         super().__init__(OPCode.LNOT, dest, type, [arg])
         self.dest = dest
         self.type = type
@@ -616,13 +638,13 @@ class Function:
                         instruction = Gte(
                             inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
                         )
-                    case "lnot":
+                    case "not":
                         instruction = Lnot(inst["dest"], inst["type"], inst["args"][0])
-                    case "land":
+                    case "and":
                         instruction = Land(
                             inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
                         )
-                    case "lor":
+                    case "or":
                         instruction = Lor(
                             inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
                         )
@@ -643,7 +665,7 @@ class Function:
                     case "nop":
                         instruction = Nop()
                     case _:
-                        raise NotImplemented("unimplemented instruction for {}".format(inst))
+                        raise NotImplementedError("unimplemented instruction for {}".format(inst))
             # Append the instruction the actual code section.
             self.instructions.append(instruction)
 
