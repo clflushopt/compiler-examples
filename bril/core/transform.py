@@ -13,6 +13,8 @@ DEAD_CODE_ELIMINATION: str = "dce"
 GLOBAL_DEAD_CODE_ELIMINATION: str = "global-dce"
 # Name assigned to the redundant store elimination transform.
 REDUNDANT_STORE_ELIMINATION: str = "rse"
+# Name assigned to local value numbering.
+LOCAL_VALUE_NUMBERING: str = "lvn"
 
 # Whether or not to enable debug mode when running optimizations to display
 # verbose information.

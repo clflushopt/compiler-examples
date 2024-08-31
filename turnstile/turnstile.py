@@ -15,9 +15,10 @@ import os
 import bril
 import bril.core.dce
 import bril.core.ir
+import bril.core.lvn
 import bril.core.parser
 import bril.core.transform
-from bril.core.transform import DEAD_CODE_ELIMINATION
+from bril.core.transform import DEAD_CODE_ELIMINATION, LOCAL_VALUE_NUMBERING
 
 
 def parse(input: str) -> bril.core.ir.Program:
@@ -93,7 +94,12 @@ if __name__ == "__main__":
             bril.core.dce.DeadCodeElimination()
             if DEAD_CODE_ELIMINATION in optimizations
             else bril.core.transform.Identity()
-        )
+        ),
+        (
+            bril.core.lvn.LocalValueNumbering()
+            if LOCAL_VALUE_NUMBERING in optimizations
+            else bril.core.transform.Identity()
+        ),
     ]
 
     for transform in transforms:

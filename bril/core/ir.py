@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 
 class OPCode(Enum):
@@ -62,6 +62,28 @@ class Instruction(ABC):
             return True
         return False
 
+    def get_dest(self) -> Optional[str]:
+        """
+        Return the destination of the instruction if one exists.
+        """
+        if isinstance(self, ConstOperation):
+            return self.dest
+        if isinstance(self, ValueOperation):
+            return self.dest
+        if isinstance(self, EffectOperation):
+            return None
+
+    def get_args(self) -> List[str]:
+        """
+        Returns the list of instruction arguments.
+        """ 
+        if isinstance(self, ConstOperation):
+            return [self.value]
+        if isinstance(self, ValueOperation):
+            return self.args
+        if isinstance(self, EffectOperation):
+            return self.args
+
 class ConstOperation(Instruction):
     """
     Instructions which are considered constant i.e the produce a constant value
@@ -112,7 +134,6 @@ class Const(ConstOperation):
 
     def __str__(self):
         return f"{self.dest}: {self.type} = const {self.value}"
-
 
 @dataclass
 class Id(ValueOperation):
@@ -673,6 +694,11 @@ class BasicBlock:
         self.successors:List[BasicBlock] = []
         self.predecessors:List[BasicBlock] = []
 
+    def __repr__(self) -> str:
+        s = "\n"
+        for instr in self.instructions:
+            s += f"{instr}\n"
+        return s
 
 class ControlFlowGraph:
     """
