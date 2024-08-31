@@ -31,16 +31,6 @@ testing framework and a library that can be used to write `expect` style tests.
 `turnstile` is how we test all program transformations especially when it comes
 to optimization passes and so on.
 
-For more details about what's implemented and where see the list below :
-
-* Core IR implementation with support for basic blocks and control flow graphs see [ir.py](bril/core/ir.py).
-* Tools to parse Bril from both text and JSON formats see [bril2txt](bril/tools/bril2ir.py) and [bril2json](bril/tools/bril2json.py).
-* Snapshot testing of optimization passes in [tunrstile](turnstile/turnstile.py).
-* Implementation of various scalar optimizations such as [Dead Code Elimination](bril/core/dce.py), 
-[Local Value Numbering](bril/core/lvn.py) and [SCCP](bril/core/sccp.py).
-* Implementation of various loop optimizations such as [Loop Invariant Code Motion](bril/core/licm.py).
-* Implementation of phase ordering selection as a [profile guided optimization](bril/core/pgo.py)
-
 ## References
 
 * [CS6120: Advanced Compilers](https://www.cs.cornell.edu/courses/cs6120/2023fa/self-guided/)
