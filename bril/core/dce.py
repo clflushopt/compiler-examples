@@ -4,10 +4,10 @@ Implementation of dead code elimination on basic blocks.
 
 from typing import List, Set
 
+from bril.core.cfg import ControlFlowGraph
 from bril.core.ir import (
     BasicBlock,
     ConstOperation,
-    ControlFlowGraph,
     EffectOperation,
     Function,
     Instruction,

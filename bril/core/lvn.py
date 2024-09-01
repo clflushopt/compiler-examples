@@ -5,7 +5,8 @@ Implementation of local value numbering.
 from typing import Callable, Dict, List, Tuple, Union
 
 import bril.core.ir as ir
-from bril.core.ir import BasicBlock, ControlFlowGraph, Function, Instruction
+from bril.core.cfg import ControlFlowGraph
+from bril.core.ir import BasicBlock, Function, Instruction
 from bril.core.transform import Transform
 
 
@@ -215,10 +216,12 @@ class LocalValueNumbering(Transform):
 
     def _run(self, function: Function):
         worklist: List[BasicBlock] = ControlFlowGraph(function).basic_blocks
-        reassembled: List[BasicBlock] = []
+        optimized_blocks: List[BasicBlock] = []
         for block in worklist:
             optimized: List[Instruction] = []
             for instr in block.instructions:
+                # In the case of constant instructions we compute their value
+                # number and load them into the constants table.
                 if isinstance(instr, ir.Const):
                     args = instr.get_args()
                     vn = self.vn(ir.Const, args)
@@ -243,8 +246,8 @@ class LocalValueNumbering(Transform):
                     self.values[vn] = instr.get_dest()
                 else:
                     optimized.append(instr)
-            reassembled.append(BasicBlock(block.label, optimized))
-            # print(f"Pre-pass: {block}")
-            # print(f"Post-pass: {BasicBlock("", optimized)}")
+            optimized_blocks.append(BasicBlock(block.label, optimized))
+            # Reset the local LVN state for the next basic block.
             self.reset()
-        function.instructions = ControlFlowGraph.reassemble(reassembled)
+        # Reassemble the optimized basic blocks back into the function.
+        function.instructions = ControlFlowGraph.reassemble(optimized_blocks)
