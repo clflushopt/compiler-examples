@@ -193,9 +193,12 @@ class Liveness(Analysis):
 @dataclass
 class Expression:
     instr: Instruction
+    versions: Dict[str, int]
 
     def __hash__(self):
-        return hash((self.instr.op, tuple(self.instr.get_args())))
+        return hash(
+            (self.instr.op, tuple(self.instr.get_args()), tuple(self.versions.items()))
+        )
 
     def __eq__(self, other):
         if not isinstance(other, Expression):
@@ -203,10 +206,14 @@ class Expression:
         return (
             self.instr.op == other.instr.op
             and self.instr.get_args() == other.instr.get_args()
+            and self.versions == other.versions
         )
 
     def __str__(self):
-        return f"{self.instr.op.name} {self.instr.get_args()[0] if self.instr.get_args() is not None else ""} {self.instr.get_args()[1] if self.instr.get_args() is not None and self.instr.get_args() > 0 else ""}"
+        args = self.instr.get_args()
+        lhs = f"{args[0]}_{self.versions[args[0]]}" if args is not None else ""
+        rhs = f"{args[1]}_{self.versions[args[1]]}" if args is not None else ""
+        return f"{self.instr.op.name} {lhs} {rhs}"
 
 
 class AvailableExpressions(Analysis):
@@ -245,22 +252,40 @@ class AvailableExpressions(Analysis):
     def gather(self, block: BasicBlock):
         self.gen[block.label] = set()
         self.kill[block.label] = set()
+        versions = {}
 
         for instr in block.instructions:
             # If this a computed expression build an expression object
             # out of it.
-            if instr.op in [OPCode.ADD, OPCode.SUB, OPCode.MUL, OPCode.DIV, OPCode.LAND, OPCode.LOR]:
-                expr = Expression(instr)
+            if instr.op in [
+                OPCode.ADD,
+                OPCode.SUB,
+                OPCode.MUL,
+                OPCode.DIV,
+                OPCode.LAND,
+                OPCode.LOR,
+            ]:
+                for arg in instr.get_args():
+                    if arg not in versions:
+                        versions[arg] = 0
+                expr = Expression(instr, versions.copy())
                 self.all_expressions.add(expr)
                 self.gen[block.label].add(expr)
                 # Kill all expressions using the destination variable
                 self.kill[block.label] |= {
-                    e for e in self.all_expressions if instr.get_dest() in e.instr.get_args()
+                    e
+                    for e in self.all_expressions
+                    if instr.get_dest() in e.instr.get_args()
                 }
             else:
                 # For non-arithmetic instructions, kill expressions using the destination
                 if instr.get_dest():
-                    self.kill[block.label] |= {e for e in self.all_expressions if instr.get_dest() in e.instr.get_args()}
+                    versions[instr.get_dest()] = versions.get(instr.get_dest(), 0) + 1
+                    self.kill[block.label] |= {
+                        e
+                        for e in self.all_expressions
+                        if instr.get_dest() in e.instr.get_args()
+                    }
 
     def compute(self, block: BasicBlock):
         """
@@ -276,7 +301,7 @@ class AvailableExpressions(Analysis):
             )
 
         self.avail_out[block.label] = self.gen[block.label].union(
-            avail_in .difference(self.kill[block.label])
+            avail_in.difference(self.kill[block.label])
         )
 
     def solve(self, cfg: ControlFlowGraph):
