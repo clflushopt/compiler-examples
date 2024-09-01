@@ -44,7 +44,7 @@ This is a non-exhaustive list of things that are currently implemented :
 - Control Flow Graph construction, predecessors and successors computation.. see [cfg.py](bril/core/cfg.py)
 - Scalar optimizations like dead code elimination, redundant store elimination, local value numbering
   with constant propagation and constant folding see [transform.py](bril/core/transform.py).
-- Program analyses (without the data flow framework) like liveness analysis see [analyses.py](bril/core/analyses.py) .
+- Program analyses (without the data flow framework) like liveness analysis and available expressions see [analyses.py](bril/core/analyses.py) .
 - Data-flow analysis, with a data-flow framework see [df.py](bril/core/df.py)
 
 ## References
