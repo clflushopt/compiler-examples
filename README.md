@@ -31,6 +31,22 @@ testing framework and a library that can be used to write `expect` style tests.
 `turnstile` is how we test all program transformations especially when it comes
 to optimization passes and so on.
 
+If you don't like `turnstile` which is just a lighter, basic version of `turnt`
+then you can use `turnt` instead which supports configuration via TOML and better
+CLI integration.
+
+## Recipes
+
+This is a non-exhaustive list of things that are currently implemented :
+
+- Various mini tools to work with the IR in [tools](bril/tools/) folder.
+- Instructions and Basic Blocks see [ir.py](bril/core/ir.py)
+- Control Flow Graph construction, predecessors and successors computation.. see [cfg.py](bril/core/cfg.py)
+- Scalar optimizations like dead code elimination, redundant store elimination, local value numbering
+  with constant propagation and constant folding see [transform.py](bril/core/transform.py).
+- Program analyses (without the data flow framework) like liveness analysis see [analyses.py](bril/core/analyses.py) .
+- Data-flow analysis, with a data-flow framework see [df.py](bril/core/df.py)
+
 ## References
 
 * [CS6120: Advanced Compilers](https://www.cs.cornell.edu/courses/cs6120/2023fa/self-guided/)

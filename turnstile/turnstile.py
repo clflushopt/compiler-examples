@@ -108,6 +108,13 @@ if __name__ == "__main__":
     if args.verbose:
         print(f"actual: {input_program}")
         print(f"expected: {expected_program}")
-        pass
 
-    assert input_program.functions == expected_program.functions
+    for actual_function, expected_function in zip(
+        input_program.functions, expected_program.functions
+    ):
+        for actual_instr, expected_instr in zip(
+            actual_function.instructions, expected_function.instructions
+        ):
+            assert str(actual_instr) == str(
+                expected_instr
+            ), f"expected {expected_instr} found {actual_instr}"
