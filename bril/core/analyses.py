@@ -5,12 +5,16 @@ analysis implementation such as `Liveness` or `ReachingDefinitions`.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Set
+from typing import Dict, List, Set
 
 from bril.core.ir import Function, Instruction, OPCode
 
 # Name assigned to the liveness analysis pass.
 LIVENESS_ANALYSIS: str = "liveness"
+# Name assigned to the available expressions pass.
+AVAILABLE_EXPRESSIONS: str = "available-expressions"
+# Name assigned to the reaching definitions pass.
+REACHING_DEFINITIONS: str = "reaching-definitions"
 
 # Enable analyses debug mode which prints extra meta-information during an
 # analysis pass.
@@ -64,18 +68,17 @@ class Liveness(Analysis):
     a path from p to a use of the variable along the control flow graph.
     """
 
-    name: str = "liveness"
-    # Set of upward-exposed variables in a block.
-    uevar: Dict[str, Set[str]] = {}
-    # Set of liveout variables in a block.
-    liveout: Dict[str, Set[str]] = {}
-    # Set of all variables defined in a block.
-    varkill: Dict[str, Set[str]] = {}
-    # Set of all variables in the function being analysed.
-    variables: Set[str] = set()
-
     def __init__(self):
-        super().__init__(self.name)
+        super().__init__(LIVENESS_ANALYSIS)
+        self.name: str = LIVENESS_ANALYSIS
+        # Set of upward-exposed variables in a block.
+        self.uevar: Dict[str, Set[str]] = {}
+        # Set of liveout variables in a block.
+        self.liveout: Dict[str, Set[str]] = {}
+        # Set of all variables defined in a block.
+        self.varkill: Dict[str, Set[str]] = {}
+        # Set of all variables in the function being analysed.
+        self.variables: Set[str] = set()
 
     def run(self, function: Function):
         # Build the function's control flow graph.
@@ -84,13 +87,9 @@ class Liveness(Analysis):
         for block in cfg.basic_blocks:
             self.gather(block)
         self.solve(cfg)
-        print("Finished computing live out set.")
-
-        print("Liveout set: ")
-        for label, liveout in self.liveout.items():
-            print(f"Block {label} liveout set is {liveout}")
-
-        pass
+        if ENABLE_ANALYSIS_DEBUG_MODE:
+            for label, liveout in self.liveout.items():
+                print(f"Block {label} liveout set is {liveout}")
 
     def gather(self, block: BasicBlock):
         """
@@ -225,29 +224,27 @@ class AvailableExpressions(Analysis):
     - The variables used in the expression haven't been redefined since its last computation.
     """
 
-    name: str = "available_expressions"
-    # Expressions generated in each block
-    gen: Dict[str, Set[Expression]] = {}
-    # Expressions killed in each block
-    kill: Dict[str, Set[Expression]] = {}
-    # Available expressions at the end of each block
-    avail_out: Dict[str, Set[Expression]] = {}
-    # All expressions in the function
-    all_expressions: Set[Expression] = set()
-
     def __init__(self):
-        pass
+        super().__init__(AVAILABLE_EXPRESSIONS)
+        self.name: str = AVAILABLE_EXPRESSIONS
+        # Expressions generated in each block
+        self.gen: Dict[str, Set[Expression]] = {}
+        # Expressions killed in each block
+        self.kill: Dict[str, Set[Expression]] = {}
+        # Available expressions at the end of each block
+        self.avail_out: Dict[str, Set[Expression]] = {}
+        # All expressions in the function
+        self.all_expressions: Set[Expression] = set()
 
     def run(self, function):
         cfg = ControlFlowGraph(function)
         for block in cfg.basic_blocks:
             self.gather(block)
         self.solve(cfg)
-        print("Finished computing available expressions.")
-
-        print("Available expressions at block exits:")
-        for label, exprs in self.avail_out.items():
-            print(f"Block {label}: {exprs}")
+        if ENABLE_ANALYSIS_DEBUG_MODE:
+            print("Available expressions at block exits:")
+            for label, exprs in self.avail_out.items():
+                print(f"Block {label}: {exprs}")
 
     def gather(self, block: BasicBlock):
         self.gen[block.label] = set()
@@ -317,3 +314,120 @@ class AvailableExpressions(Analysis):
                 self.compute(block)
                 if self.avail_out[block.label] != old_avail_out:
                     changed = True
+
+
+@dataclass
+class Definition:
+    # Variable name.
+    variable: str
+    # Block name or label.
+    block: str
+    # Index in the list of instructions.
+    index: int
+
+    def __hash__(self):
+        return hash((self.variable, self.block, self.index))
+
+    def __eq__(self, other):
+        if not isinstance(other, Definition):
+            return False
+        return (
+            self.variable == other.variable
+            and self.block == other.block
+            and self.index == other.index
+        )
+
+    def __str__(self):
+        return f"{self.variable} defined in block {self.block} at index {self.index}"
+
+
+class ReachingDefinitions(Analysis):
+    """
+    Reaching definitions determines which definitions of variables may reach
+    a given point in the program.
+
+    Similar to liveness and available expressions analysis, the goal is to
+    collect facts about the program and use the facts to solve the data-flow
+    equation.
+
+    The facts collected from the program are:
+
+    - GEN: Set of definitions generated in the block.
+    - KILL: Set of definitions killed (overwritten) in the block.
+    - IN: Set of definitions reaching the start of the block.
+    - OUT: Set of definitions reaching the end of the block.
+
+    For each block we want to solve the following data-flow equations:
+
+    - IN[B] = UNION(OUT[P] for P in PRED(B))
+    - OUT[B] = GEN[B] U (IN[B] - KILL[B])
+    """
+
+    def __init__(self):
+        super().__init__(REACHING_DEFINITIONS)
+        self.name: str = REACHING_DEFINITIONS
+        self.gen: Dict[str, Set[Definition]] = {}
+        self.kill: Dict[str, Set[Definition]] = {}
+        self.in_defs: Dict[str, Set[Definition]] = {}
+        self.out_defs: Dict[str, Set[Definition]] = {}
+        self.all_defs: Set[Definition] = set()
+
+    def run(self, function: Function):
+        cfg: ControlFlowGraph = ControlFlowGraph(function)
+        worklist: List[BasicBlock] = cfg.basic_blocks
+
+        for block in worklist:
+            self.gather(block)
+
+        # Initialize the solves sets.
+        for block in worklist:
+            self.in_defs[block.label] = set()
+            self.out_defs[block.label] = set()
+
+        changed: bool = True
+        while changed:
+            changed = False
+            for block in worklist:
+                # Compute IN[B].
+                new_in = set().union(
+                    *(self.out_defs[p.label] for p in block.predecessors)
+                )
+
+                if new_in != self.in_defs[block.label]:
+                    self.in_defs[block.label] = new_in
+                    changed = True
+
+                # Compute OUT[B]
+                new_out = self.gen[block.label].union(
+                    self.in_defs[block.label].difference(self.kill[block.label])
+                )
+
+                if new_out != self.out_defs[block.label]:
+                    self.out_defs[block.label] = new_out
+                    changed = True
+
+        if ENABLE_ANALYSIS_DEBUG_MODE:
+            print("Reaching Definitions Analysis Results:")
+            for block_label, out_set in self.out_defs.items():
+                print(f"Block {block_label} OUT:")
+                for definition in out_set:
+                    print(
+                        f"  {definition.variable} defined in block {definition.block} at index {definition.index}"
+                    )
+
+    def gather(self, block: BasicBlock):
+        """
+        Gather facts for the block.
+        """
+        self.gen[block.label] = set()
+        self.kill[block.label] = set()
+
+        for ii, instr in enumerate(block.instructions):
+            if instr.get_dest() is not None:
+                new_def = Definition(instr.get_dest(), block.label, ii)
+                self.all_defs.add(new_def)
+                self.gen[block.label].add(new_def)
+                # Kill previous definitions.
+                self.kill[block.label] |= {
+                    d for d in self.all_defs if d.variable == instr.get_dest()
+                }

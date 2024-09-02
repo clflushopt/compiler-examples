@@ -10,11 +10,17 @@ import bril
 import bril.core.df
 import bril.core.ir
 import bril.core.parser
-from bril.core.analyses import Analysis, AvailableExpressions, Liveness
+from bril.core.analyses import (
+    Analysis,
+    AvailableExpressions,
+    Liveness,
+    ReachingDefinitions,
+)
 
 ANALYSES: List[Analysis] = [
     Liveness(),
     AvailableExpressions(),
+    ReachingDefinitions(),
 ]
 
 if __name__ == "__main__":

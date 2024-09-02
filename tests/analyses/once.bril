@@ -1,0 +1,20 @@
+@main {
+  x: int = const 31;
+  y: int = const 27;
+  a: int = mul x y;
+  j: int = const 0;
+  k: int = const 1;
+  cond: bool = eq j k;
+  br cond .left .right;
+  .left:
+    x: int = const 5;
+    t: int = mul x y;
+    jmp .end;
+  .right:
+    x: int = const 3;
+    u: int = mul x y;
+    jmp .end;
+  .end:
+    result: int = mul x y;
+    print result;
+}
