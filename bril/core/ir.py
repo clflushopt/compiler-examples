@@ -582,92 +582,6 @@ class Function:
         self.params:List[str] = params
         self.instructions:List[Instruction] = instructions
 
-    def __init__(self, ast:dict):
-        """
-        Form a function from a JSON encoded AST.
-        """
-        self.instructions = []
-        self.return_type = ast.get("type", "void")
-        self.params = ast.get("args", [])
-        self.name = ast.get("name", "main")
-        for inst in ast["instrs"]:
-            instruction: Instruction
-            assert isinstance(inst, dict)
-            if inst.get("label") is not None:
-                instruction = Label(inst["label"])
-            elif inst.get("op") is not None:
-                match inst["op"]:
-                    case "id":
-                        instruction = Id(inst["dest"], inst["type"], inst["args"][0])
-                    case "const":
-                        instruction = Const(inst["dest"], inst["type"], inst["value"])
-                    case "add":
-                        instruction = Add(
-                            inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
-                        )
-                    case "mul":
-                        instruction = Mul(
-                            inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
-                        )
-                    case "sub":
-                        instruction = Sub(
-                            inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
-                        )
-                    case "div":
-                        instruction = Div(
-                            inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
-                        )
-                    case "eq":
-                        instruction = Eq(
-                            inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
-                        )
-                    case "lt":
-                        instruction = Lt(
-                            inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
-                        )
-                    case "gt":
-                        instruction = Gt(
-                            inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
-                        )
-                    case "lte":
-                        instruction = Lte(
-                            inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
-                        )
-                    case "gte":
-                        instruction = Gte(
-                            inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
-                        )
-                    case "not":
-                        instruction = Lnot(inst["dest"], inst["type"], inst["args"][0])
-                    case "and":
-                        instruction = Land(
-                            inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
-                        )
-                    case "or":
-                        instruction = Lor(
-                            inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
-                        )
-                    case "jmp":
-                        instruction = Jmp(inst["labels"][0])
-                    case "call":
-                        instruction = Call(
-                            inst.get("dest"), inst.get("type"), inst["funcs"][0], inst.get("args")
-                        )
-                    case "br":
-                        instruction = Br(
-                            inst["args"], inst["labels"][0], inst["labels"][1]
-                        )
-                    case "print":
-                        instruction = Print(inst["args"][0])
-                    case "ret":
-                        instruction = Ret(None if inst.get("args") is None else inst["args"][0])
-                    case "nop":
-                        instruction = Nop()
-                    case _:
-                        raise NotImplementedError("unimplemented instruction for {}".format(inst))
-            # Append the instruction the actual code section.
-            self.instructions.append(instruction)
-
     def __str__(self):
         param_str = (
             ""
@@ -682,6 +596,95 @@ class Function:
         )
 
 
+def from_ast(ast:dict) -> Function:
+    """
+    Form a function from a JSON encoded AST.
+    """
+    instructions = []
+    return_type = ast.get("type", "void")
+    params = ast.get("args", [])
+    name = ast.get("name", "main")
+    function = Function(name, return_type,params,instructions)
+    for inst in ast["instrs"]:
+        instruction: Instruction
+        assert isinstance(inst, dict)
+        if inst.get("label") is not None:
+            instruction = Label(inst["label"])
+        elif inst.get("op") is not None:
+            match inst["op"]:
+                case "id":
+                    instruction = Id(inst["dest"], inst["type"], inst["args"][0])
+                case "const":
+                    instruction = Const(inst["dest"], inst["type"], inst["value"])
+                case "add":
+                    instruction = Add(
+                        inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
+                    )
+                case "mul":
+                    instruction = Mul(
+                        inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
+                    )
+                case "sub":
+                    instruction = Sub(
+                        inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
+                    )
+                case "div":
+                    instruction = Div(
+                        inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
+                    )
+                case "eq":
+                    instruction = Eq(
+                        inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
+                    )
+                case "lt":
+                    instruction = Lt(
+                        inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
+                    )
+                case "gt":
+                    instruction = Gt(
+                        inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
+                    )
+                case "lte":
+                    instruction = Lte(
+                        inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
+                    )
+                case "gte":
+                    instruction = Gte(
+                        inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
+                    )
+                case "not":
+                    instruction = Lnot(inst["dest"], inst["type"], inst["args"][0])
+                case "and":
+                    instruction = Land(
+                        inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
+                    )
+                case "or":
+                    instruction = Lor(
+                        inst["dest"], inst["type"], inst["args"][0], inst["args"][1]
+                    )
+                case "jmp":
+                    instruction = Jmp(inst["labels"][0])
+                case "call":
+                    instruction = Call(
+                        inst.get("dest"), inst.get("type"), inst["funcs"][0], inst.get("args")
+                    )
+                case "br":
+                    instruction = Br(
+                        inst["args"], inst["labels"][0], inst["labels"][1]
+                    )
+                case "print":
+                    instruction = Print(inst["args"][0])
+                case "ret":
+                    instruction = Ret(None if inst.get("args") is None else inst["args"][0])
+                case "nop":
+                    instruction = Nop()
+                case _:
+                    raise NotImplementedError("unimplemented instruction for {}".format(inst))
+        # Append the instruction the actual code section.
+        instructions.append(instruction)
+    return function
+
+
 class Program:
     """
     Programs in the Bril intermediate language are just sequence of functions
@@ -693,7 +696,7 @@ class Program:
         """
         self.functions: List[Function] = []
         for function in ast["functions"]:
-            func = Function(function)
+            func = from_ast(function)
             self.functions.append(func)
 
     def __str__(self) -> str:

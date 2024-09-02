@@ -171,3 +171,13 @@ class ControlFlowGraph:
             for instr in block.instructions:
                 instructions.append(instr)
         return instructions
+
+    def copy(self):
+        return ControlFlowGraph(
+            Function(
+                self.function.name,
+                self.function.return_type,
+                self.function.params.copy(),
+                self.function.instructions.copy(),
+            )
+        )
