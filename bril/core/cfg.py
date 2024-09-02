@@ -2,7 +2,7 @@
 Implementation of the control flow graph class and methods.
 """
 
-from typing import List, OrderedDict
+from typing import List, OrderedDict, Set
 
 import bril.core.ir as ir
 from bril.core.ir import BasicBlock, Function, Instruction, Label
@@ -18,6 +18,9 @@ class ControlFlowGraph:
         self.function: Function = function
         self.basic_blocks: List[BasicBlock] = []
         self.block_map: OrderedDict[str, BasicBlock] = OrderedDict()
+        self.entry: BasicBlock = None
+        self.exit: BasicBlock = None
+
         # List of blocks we are going to build.
         blocks = []
         # Current block being processed.
@@ -92,6 +95,31 @@ class ControlFlowGraph:
                     # Return is a fall through instruction i.e does not name
                     # a target label, instead it returns back to the call site.
 
+        # Set the entry point (first block).
+        if self.basic_blocks and len(self.basic_blocks) > 0:
+            self.entry = self.basic_blocks[0]
+
+        # Find exit points (blocks with no successors or contain return instructions).
+        exit_points: List[BasicBlock] = []
+        for block in self.basic_blocks:
+            if not block.successors or any(
+                isinstance(instr, ir.Ret) for instr in block.instructions
+            ):
+                exit_points.append(block)
+
+        # If there's only one exit block, set it as the exit otherwise create an
+        # exit block and connect all exit_points to it via a path.
+        if len(exit_points) == 1:
+            self.exit = exit_points[0]
+        else:
+            self.exit = BasicBlock(label="__reserved__exit", instructions=[])
+            for block in exit_points:
+                block.successors.append(self.exit)
+                self.exit.predecessors.append(block)
+
+            self.basic_blocks.append(self.exit)
+            self.block_map["__reserved__exit"] = self.exit
+
     def __str__(self):
         dot_str = "digraph {} {{\n".format(self.function.name)
         for block in self.basic_blocks:
@@ -103,6 +131,36 @@ class ControlFlowGraph:
                 dot_str += f"  {block.label} -> {successor.label};\n"
         dot_str += "}"
         return dot_str
+
+    def dfs(self) -> List[BasicBlock]:
+        """
+        Perform depth-first search traversal of the nodes in the control flow
+        graph and build a list of basic blocks in post-order.
+        """
+        visited: Set[BasicBlock] = set()
+        ordered: List[BasicBlock] = []
+
+        def _dfs(node: BasicBlock):
+            """
+            depth-first search traversal (recursive).
+            """
+            if node in visited:
+                return
+            visited.add(node)
+            for succ in node.successors:
+                _dfs(succ)
+            ordered.append(node)
+
+        _dfs(self.entry)
+        return ordered
+
+    def postorder(self) -> List[BasicBlock]:
+        """Return the nodes of the CFG in post-order."""
+        return self.dfs()
+
+    def reverse_postorder(self) -> List[BasicBlock]:
+        """Return the nodes of the CFG in reverse post-order."""
+        return list(reversed(self.dfs()))
 
     def reassemble(blocks: List[BasicBlock]) -> List[Instruction]:
         """

@@ -1,3 +1,3 @@
 """
-Implementation of a data analysis framework.
+Implementation of a data-flow framework.
 """
