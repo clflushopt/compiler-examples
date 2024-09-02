@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, List, Set
 
+from bril.core.dom import DominanceRelationship
 from bril.core.ir import Function, Instruction, OPCode
 
 # Name assigned to the liveness analysis pass.
@@ -431,3 +432,20 @@ class ReachingDefinitions(Analysis):
                 self.kill[block.label] |= {
                     d for d in self.all_defs if d.variable == instr.get_dest()
                 }
+
+
+class Dominance(Analysis):
+    """
+    Implementation of dominance analysis.
+    """
+
+    def __init__(self):
+        super().__init__("dominance")
+
+    def run(self, function: Function):
+        super().run(function)
+        self.cfg: ControlFlowGraph = ControlFlowGraph(function=function)
+        self.dom = DominanceRelationship(self.cfg)
+        self.dom.run()
+        if ENABLE_ANALYSIS_DEBUG_MODE:
+            self.dom.results()

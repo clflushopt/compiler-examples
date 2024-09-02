@@ -718,6 +718,12 @@ class BasicBlock:
         self.successors:List[BasicBlock] = []
         self.predecessors:List[BasicBlock] = []
 
+    def copy(self):
+        block = BasicBlock(self.label, self.instructions.copy())
+        block.successors = self.successors.copy()
+        block.predecessors = self.predecessors.copy()
+        return block
+
     def __repr__(self) -> str:
         s = "\n"
         for instr in self.instructions:

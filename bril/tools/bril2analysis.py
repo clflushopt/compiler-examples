@@ -13,6 +13,7 @@ import bril.core.parser
 from bril.core.analyses import (
     Analysis,
     AvailableExpressions,
+    Dominance,
     Liveness,
     ReachingDefinitions,
 )
@@ -21,6 +22,7 @@ ANALYSES: List[Analysis] = [
     Liveness(),
     AvailableExpressions(),
     ReachingDefinitions(),
+    Dominance(),
 ]
 
 if __name__ == "__main__":
