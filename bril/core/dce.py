@@ -4,7 +4,7 @@ Implementation of dead code elimination on basic blocks.
 
 from typing import List, Set
 
-from bril.core.cfg import ControlFlowGraph
+from bril.core.cfg import ControlFlowGraph, reassemble
 from bril.core.ir import (
     BasicBlock,
     ConstOperation,
@@ -101,7 +101,7 @@ class GlobalDeadCodeElimination(Transform):
                     new_block.append(inst)
             eliminated |= len(new_block) != len(block.instructions)
             block.instructions[:] = new_block
-        function.instructions[:] = ControlFlowGraph.reassemble(worklist)
+        function.instructions[:] = reassemble(worklist)
         return eliminated
 
 
@@ -129,7 +129,7 @@ class RedundantStoreElimination(Transform):
         # Iterate over the blocks in the worklist.
         for block in worklist:
             eliminated |= self.eliminate_dead_stores(block)
-        function.instructions[:] = ControlFlowGraph.reassemble(worklist)
+        function.instructions[:] = reassemble(worklist)
         return eliminated
 
     def eliminate_dead_stores(self, block: BasicBlock) -> bool:

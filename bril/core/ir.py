@@ -6,7 +6,7 @@ are written in the form `dst <- op args`.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 
 class OPCode(Enum):
@@ -34,6 +34,7 @@ class OPCode(Enum):
     CALL = 17
     RET = 18
     PRINT = 19
+    PHI = 20
 
 class Instruction(ABC):
     """
@@ -83,6 +84,24 @@ class Instruction(ABC):
             return self.args
         if isinstance(self, EffectOperation):
             return self.args
+
+    def set_args(self, args):
+        """
+        Returns the list of instruction arguments.
+        """ 
+        if isinstance(self, ConstOperation):
+            self.value = args
+        if isinstance(self, ValueOperation):
+            self.args = args
+        if isinstance(self, EffectOperation):
+            self.args = args
+            
+    def set_dest(self, dest):
+        if isinstance(self, ConstOperation):
+            self.dest = dest
+        if isinstance(self, ValueOperation):
+            self.dest = dest
+
 
 class ConstOperation(Instruction):
     """
@@ -544,7 +563,6 @@ class Ret(EffectOperation):
         else:
             return f"ret"
 
-
 @dataclass
 class Label(Instruction):
     name: str
@@ -565,6 +583,31 @@ class Label(Instruction):
 
     def __str__(self):
         return f".{self.name}:"
+
+
+@dataclass
+class Phi(Instruction):
+    args: List[str]
+    labels: List[Label]
+    """
+    `phi` is a pseudo-instruction used to mark Phi-nodes in SSA form.
+    """
+
+    def __init__(self, dest: str, type: str, labels: List[str], args: List[str]):
+        super().__init__(OPCode.PHI,)
+        self.labels = labels
+        self.args = args
+        self.dest = dest
+        self.type = type
+        
+    def __str__(self):
+         label_args = ' '.join(f"{arg} {label}" for arg, label in zip(self.args, self.labels))
+         return f"{self.dest}: {self.type} = phi {label_args}"
+ 
+    def get_args(self) -> List[str]:
+         return self.args
+
+
 
 
 @dataclass
@@ -712,20 +755,45 @@ class BasicBlock:
     Basic block is a straight-line sequence of Bril instructions without
     branches except to the entry and at the exit.
     """
-    def __init__(self, label, instructions):
+    def __init__(self, label:str, instructions:List[Instruction] = None, phi_nodes:List[Phi] = None):
         self.label:str = label
         self.instructions:List[Instruction] = instructions
+        self.phi_nodes = phi_nodes or []
         self.successors:List[BasicBlock] = []
         self.predecessors:List[BasicBlock] = []
+        self.sealed: bool = False
+        self.incomplete_phis: Dict[str, Phi] = {}
+
+    def add_phi(self, phi: Phi):
+        if self.sealed:
+            self.phi_nodes.append(phi)
+        else:
+            self.incomplete_phis[phi.get_dest()] = phi
+
+    def seal(self):
+        self.sealed = True
+        for phi in self.incomplete_phis.values():
+            self.phi_nodes.append(phi)
+        self.incomplete_phis.clear()
+
+    def is_sealed(self) -> bool:
+        return self.sealed
+    
+    def add_predecessor(self, pred: 'BasicBlock'):
+        if pred not in self.predecessors:
+            self.predecessors.append(pred)
 
     def copy(self):
         block = BasicBlock(self.label, self.instructions.copy())
+        block.phi_nodes = self.phi_nodes.copy()
         block.successors = self.successors.copy()
         block.predecessors = self.predecessors.copy()
         return block
 
     def __repr__(self) -> str:
-        s = "\n"
+        s = f"{self.label}:\n"
+        for phi in self.phi_nodes:
+            s += f"  {phi}\n"
         for instr in self.instructions:
             s += f"{instr}\n"
         return s

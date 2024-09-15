@@ -5,7 +5,7 @@ Implementation of local value numbering.
 from typing import Callable, Dict, List, Tuple, Union
 
 import bril.core.ir as ir
-from bril.core.cfg import ControlFlowGraph
+from bril.core.cfg import ControlFlowGraph, reassemble
 from bril.core.ir import BasicBlock, Function, Instruction
 from bril.core.transform import Transform
 
@@ -250,4 +250,4 @@ class LocalValueNumbering(Transform):
             # Reset the local LVN state for the next basic block.
             self.reset()
         # Reassemble the optimized basic blocks back into the function.
-        function.instructions = ControlFlowGraph.reassemble(optimized_blocks)
+        function.instructions = reassemble(optimized_blocks)

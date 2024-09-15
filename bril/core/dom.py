@@ -74,6 +74,7 @@ class DominanceRelationship:
         # The dominance information we want to compute and their data structures.
         self.dominator_tree: Dict[BasicBlock, Set[BasicBlock]] = {}
         self.dominator_frontier: Dict[BasicBlock, Set[BasicBlock]] = {}
+        self.dominance_frontier: Dict[str, Set[BasicBlock]] = {}
         self.dominator_sets: Dict[BasicBlock, Set[BasicBlock]] = {}
 
     def run(self):
@@ -96,7 +97,7 @@ class DominanceRelationship:
         """
         Implementation of the DFS phase with node numbering.
         """
-        self.info[block] = DominanceInformation(
+        self.info[block.label] = DominanceInformation(
             parent=parent,
             semi=len(self.vertex),
             label=block.label,
@@ -112,23 +113,29 @@ class DominanceRelationship:
         Implementation of path compression as described in the original paper
         this is essentially union-find.
         """
-        current_block_info = self.info[block]
-        if self.info[current_block_info.ancestor]:
+        current_block_info = self.info[block.label]
+        if (
+            current_block_info.ancestor is not None
+            and self.info[current_block_info.ancestor.label]
+        ):
             self.compress(current_block_info.ancestor)
             if (
-                self.info[self.info[current_block_info.ancestor].label].semi
+                self.info[self.info[current_block_info.ancestor.label].label].semi
                 < self.info[current_block_info.label].semi
             ):
-                current_block_info.label = self.info[current_block_info.ancestor].label
-            current_block_info.ancestor = self.info[current_block_info].ancestor
+                current_block_info.label = self.info[
+                    current_block_info.ancestor.label
+                ].label
+            current_block_info.ancestor = self.info[current_block_info.label].ancestor
 
-    def eval(self, block: BasicBlock) -> BasicBlock:
+    def eval(self, block: BasicBlock) -> str:
         """
         Evaluate if the current block can be path compressed.
         """
-        current_block_info = self.info[block]
+        print(f"Block {block.label} Info {self.info}")
+        current_block_info = self.info[block.label]
         if not current_block_info.ancestor:
-            return block
+            return block.label
         self.compress(block=block)
         return current_block_info.label
 
@@ -136,7 +143,7 @@ class DominanceRelationship:
         """
         Link two basic blocks to enable path compression optimization.
         """
-        self.info[other].ancestor = block
+        self.info[other.label].ancestor = block
 
     def _compute_dominators(self):
         """
@@ -150,7 +157,7 @@ class DominanceRelationship:
         # the graph is traversed in reverse DFS order.
         for i in range(len(self.vertex) - 1, 0, -1):
             w = self.vertex[i]
-            info_w = self.info[w]
+            info_w = self.info[w.label]
 
             # Compute semi-dominators for `w`.
             for v in w.predecessors:
@@ -160,31 +167,31 @@ class DominanceRelationship:
                     info_w.semi = self.info[u].semi
 
             # Add w to its own semis candidate list (every node dominates itself).
-            self.info[self.vertex[info_w.semi]].bucket.add(w)
+            self.info[self.vertex[info_w.semi].label].bucket.add(w)
             self.link(info_w.parent, w)
 
             # Process w's parent candidates as potential immediate dominators.
-            for v in list(self.info[info_w.parent].bucket):
-                self.info[info_w.parent].bucket.remove(v)
+            for v in list(self.info[info_w.parent.label].bucket):
+                self.info[info_w.parent.label].bucket.remove(v)
                 u = self.eval(v)
                 self.idom[v] = (
-                    u if self.info[u].semi < self.info[v].semi else info_w.parent
+                    u if self.info[u].semi < self.info[v.label].semi else info_w.parent
                 )
 
         # Phase 3 compute the immediate dominators (i.e candidate selection).
         for i in range(1, len(self.vertex)):
             w = self.vertex[i]
-            if self.idom[w] != self.vertex[self.info[w].semi]:
+            if self.idom[w] != self.vertex[self.info[w.label].semi]:
                 self.idom[w] = self.idom[self.idom[w]]
 
     def build_dominator_tree(self):
         """
         Build the dominator tree, assuming we have computed the dominance relations.
         """
-        self.dominator_tree = {block: set() for block in self.cfg.basic_blocks}
+        self.dominator_tree = {block.label: set() for block in self.cfg.basic_blocks}
         for block, idom in self.idom.items():
             if block != self.cfg.entry:
-                self.dominator_tree[idom.copy()].add(block.copy())
+                self.dominator_tree[idom.copy().label].add(block.copy())
 
     def compute_dominator_sets(self):
         """
@@ -207,11 +214,15 @@ class DominanceRelationship:
 
     def compute_dominance_frontier(self):
         # Compute the dominance frontier for each node
-        self.dominance_frontier = {block: set() for block in self.cfg.basic_blocks}
+        self.dominator_frontier = {block: set() for block in self.cfg.basic_blocks}
+        self.dominance_frontier = {
+            block.label: set() for block in self.cfg.basic_blocks
+        }
         for block in self.cfg.basic_blocks:
             if len(block.predecessors) >= 2:
                 for pred in block.predecessors:
                     runner = pred
                     while runner != self.idom[block]:
-                        self.dominance_frontier[runner].add(block)
+                        self.dominance_frontier[runner.label].add(block)
+                        self.dominator_frontier[runner].add(block)
                         runner = self.idom[runner]

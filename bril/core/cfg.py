@@ -22,9 +22,9 @@ class ControlFlowGraph:
         self.exit: BasicBlock = None
 
         # List of blocks we are going to build.
-        blocks = []
+        blocks: List[BasicBlock] = []
         # Current block being processed.
-        current_block = []
+        current_block: BasicBlock = []
 
         # The algorithm for forming basic blocks iterates over the function's
         # instruction and for each instruction, if it's not a terminator or a
@@ -162,16 +162,6 @@ class ControlFlowGraph:
         """Return the nodes of the CFG in reverse post-order."""
         return list(reversed(self.dfs()))
 
-    def reassemble(blocks: List[BasicBlock]) -> List[Instruction]:
-        """
-        Flatten basic blocks back to a list of instructions.
-        """
-        instructions = []
-        for block in blocks:
-            for instr in block.instructions:
-                instructions.append(instr)
-        return instructions
-
     def copy(self):
         return ControlFlowGraph(
             Function(
@@ -181,3 +171,26 @@ class ControlFlowGraph:
                 self.function.instructions.copy(),
             )
         )
+
+    def reassemble(self) -> List[Instruction]:
+        """
+        Flatten basic blocks back to a list of instructions.
+        """
+        instructions = []
+        for block in self.basic_blocks:
+            for phi in block.phi_nodes:
+                instructions.append(phi)
+            for instr in block.instructions:
+                instructions.append(instr)
+        return instructions
+
+
+def reassemble(blocks: List[BasicBlock]) -> List[Instruction]:
+    """
+    Flatten basic blocks back to a list of instructions.
+    """
+    instructions = []
+    for block in blocks:
+        for instr in block.instructions:
+            instructions.append(instr)
+    return instructions
